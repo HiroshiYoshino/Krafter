@@ -4,6 +4,31 @@
 
 Krafter は業務アプリに必要な background jobs、container publish、build automation、GitHub Actions、NuGet template publish の土台を持っています。実務では「機能が動く」だけでなく、非同期処理、配信、template 更新まで理解する必要があります。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| Background job | request の外で後から実行する処理 | TickerQ |
+| Retry | 失敗時に再実行する設定 | `RetryIntervals` |
+| Container publish | app を container image として発行すること | `PublishProfile=DefaultContainer` |
+| Build automation | build/test/publish を script 化すること | NUKE `Build.cs` |
+| GitHub Actions | GitHub 上の CI/CD workflow | `.github/workflows/main.yml` |
+| NuGet publish | template package を NuGet に公開すること | `dotnet nuget push` |
+
+## 図で見る運用の流れ
+
+```mermaid
+flowchart TD
+    Code["Code / docs changes"] --> CI["GitHub Actions"]
+    CI --> Nuke["NUKE Build"]
+    Nuke --> Docker["dotnet publish<br/>container image"]
+    Nuke --> NuGet["dotnet pack / nuget push<br/>template package"]
+    App["Running app"] --> Job["TickerQ background job"]
+    Job --> Db["BackgroundJobsContext"]
+```
+
+Krafter はアプリ本体だけでなく、template として配布するための build/publish も持っています。普通の Web app より一段広い視点が必要です。
+
 ## Krafterでの実装
 
 - Background jobs registration: [src/AditiKraft.Krafter.Backend/Infrastructure/Jobs/JobsConfiguration.cs](../../../src/AditiKraft.Krafter.Backend/Infrastructure/Jobs/JobsConfiguration.cs)
@@ -15,6 +40,35 @@ Krafter は業務アプリに必要な background jobs、container publish、bui
 - Docker publish commands: [README.md](../../../README.md)
 
 `JobService.EnqueueAsync` は TickerQ の `ITimeTickerManager<TimeTicker>` を使い、指定した function を後で実行する job として登録します。`Build.cs` は Docker image publish と template package publish をまとめています。
+
+## background job のコード例
+
+```csharp
+[TickerFunction(nameof(SendEmailJob))]
+public async Task SendEmailJob(
+    TickerFunctionContext<SendEmailRequestInput> tickerContext,
+    CancellationToken cancellationToken)
+{
+    await emailService.SendEmailAsync(
+        tickerContext.Request.Email,
+        tickerContext.Request.Subject,
+        tickerContext.Request.HtmlMessage,
+        cancellationToken);
+}
+```
+
+```csharp
+await timeTickerManager.AddAsync(new TimeTicker
+{
+    Request = TickerHelper.CreateTickerRequest(requestInput),
+    ExecutionTime = DateTime.Now.AddSeconds(1),
+    Function = methodName,
+    Retries = 3,
+    RetryIntervals = [20, 60, 100]
+}, cancellationToken);
+```
+
+上は「実行される関数」、下は「その関数を job として予約する処理」です。API request の中でメール送信を待つ代わりに、job として登録して後で処理できます。
 
 ## 実務で必要な知識
 

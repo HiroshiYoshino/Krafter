@@ -4,6 +4,31 @@
 
 Krafter の UI は認証状態、token storage、server-side cookie/cache、SignalR real-time connection を扱います。Blazor では `AuthenticationStateProvider` が UI に sign-in 状態を伝え、SignalR は通知などのリアルタイム機能に使われます。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| Authentication state | UI から見た login 状態 | `AuthenticationStateProvider` |
+| HttpOnly cookie | JavaScript から読めない cookie | server-side token 保持 |
+| Local storage | browser 側の保存領域 | WebAssembly auth token cache |
+| SignalR Hub | server 側の realtime endpoint | `RealtimeHub` |
+| HubConnection | client 側の SignalR 接続 | `SignalRService` |
+| Reconnect | 切断後の再接続 | `WithAutomaticReconnect` |
+
+## 図で見る認証状態と SignalR
+
+```mermaid
+flowchart TD
+    Login["Login / Refresh"] --> Storage["Auth storage<br/>cookie/cache or browser storage"]
+    Storage --> AuthState["AuthenticationStateProvider"]
+    AuthState --> UI["AuthorizeRouteView / AuthorizeView"]
+    Storage --> SignalR["SignalRService access token provider"]
+    SignalR --> Hub["RealtimeHub"]
+    Hub --> Group["Tenant group"]
+```
+
+UI の表示制御、API 呼び出し、SignalR 接続は、どれも token や authentication state に依存します。1 つだけ直しても、他が古い token を見ていると不具合になります。
+
 ## Krafterでの実装
 
 - Client auth state provider: [src/UI/AditiKraft.Krafter.UI.Web.Client/Infrastructure/Auth/UIAuthenticationStateProvider.cs](../../../src/UI/AditiKraft.Krafter.UI.Web.Client/Infrastructure/Auth/UIAuthenticationStateProvider.cs)
@@ -15,6 +40,24 @@ Krafter の UI は認証状態、token storage、server-side cookie/cache、Sign
 - SignalR client service: [src/UI/AditiKraft.Krafter.UI.Web.Client/Infrastructure/SignalR/SignalRService.cs](../../../src/UI/AditiKraft.Krafter.UI.Web.Client/Infrastructure/SignalR/SignalRService.cs)
 
 `SignalRService` は WebAssembly 実行時に認証済み user だけ HubConnection を作り、access token provider で token を渡します。
+
+## SignalR client のコード例
+
+```csharp
+_hubConnection = new HubConnectionBuilder()
+    .WithUrl(TenantInfo.HostUrl + $"/{ApiRoutes.ApiPrefix}/RealtimeHub", options =>
+    {
+        options.AccessTokenProvider = async () =>
+        {
+            string? token = await _localStorageService.GetCachedAuthTokenAsync();
+            return token?.Replace("Bearer ", "").Trim();
+        };
+    })
+    .WithAutomaticReconnect(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5) })
+    .Build();
+```
+
+SignalR は通常の HTTP request と違って接続が続きます。そのため、接続開始時だけでなく、token expiry、reconnect、logout の流れも考える必要があります。
 
 ## 実務で必要な知識
 

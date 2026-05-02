@@ -4,6 +4,28 @@
 
 Vertical Slice Architecture は、技術レイヤーごとではなく、ユースケースや機能単位でコードをまとめる考え方です。Krafter の Backend では、`Features/Users/GetUsers.cs` のように、1 つの operation file に handler と route mapping を近づけています。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| Vertical slice | 1 つのユースケースを縦に切った単位 | `GetUsers`、`CreateTenant` など |
+| Operation file | 1 endpoint/use case の中心 file | Handler と Route を近くに置きます |
+| Handler | business 処理を実行する class | DB query、service 呼び出し、response 作成 |
+| Route registrar | endpoint を `MapGet` などで登録する class | `IRouteRegistrar` 実装 |
+| Cross-cutting | 機能横断の仕組み | 認証、tenant、例外、validation |
+
+## 図で見る VSA
+
+```mermaid
+flowchart LR
+    Request["HTTP Request"] --> Route["Route<br/>MapGet/MapPost"]
+    Route --> Handler["Handler<br/>use case logic"]
+    Handler --> Db["DbContext / Services"]
+    Handler --> Response["Response<T>"]
+```
+
+従来の「Controller 層、Service 層、Repository 層」を横に分ける見方ではなく、「ユーザー一覧を取得する」という 1 つの目的で必要なものを近くに置くのが VSA の感覚です。
+
 ## Krafterでの実装
 
 - Backend agent rules: [src/AditiKraft.Krafter.Backend/Agents.md](../../../src/AditiKraft.Krafter.Backend/Agents.md)
@@ -14,6 +36,39 @@ Vertical Slice Architecture は、技術レイヤーごとではなく、ユー�
 - Handler auto registration: [src/AditiKraft.Krafter.Backend/Infrastructure/Persistence/PersistenceConfiguration.cs](../../../src/AditiKraft.Krafter.Backend/Infrastructure/Persistence/PersistenceConfiguration.cs)
 
 Krafter の operation は、`Handler` が処理を実行し、`Route` が Minimal API endpoint を map します。DTO と validator は Contracts 側に置き、Backend-only DTO を増やさない方針です。
+
+## operation file の最小形
+
+```csharp
+public sealed class GetActiveUsers
+{
+    internal sealed class Handler(ApplicationDbContext db) : IScopedHandler
+    {
+        public async Task<Response<List<UserDto>>> GetAsync(CancellationToken cancellationToken)
+        {
+            List<UserDto> data = await db.Users
+                .Where(user => user.IsActive)
+                .Select(user => new UserDto { Id = user.Id, Email = user.Email })
+                .ToListAsync(cancellationToken);
+
+            return Response<List<UserDto>>.Success(data);
+        }
+    }
+
+    public sealed class Route : IRouteRegistrar
+    {
+        public void MapRoute(IEndpointRouteBuilder endpoints)
+        {
+            endpoints.MapGroup(ApiRoutes.Users)
+                .MapGet("/", async ([FromServices] Handler handler, CancellationToken ct) =>
+                    Results.Json(await handler.GetAsync(ct)))
+                .MustHavePermission(PermissionAction.View, PermissionResource.Users);
+        }
+    }
+}
+```
+
+これは説明用の簡略例です。実際の Krafter では `GetUsers.cs` のように pagination、validation filter、`.Produces<Response<T>>()`、route constants を既存 pattern に合わせます。
 
 ## 実務で必要な知識
 

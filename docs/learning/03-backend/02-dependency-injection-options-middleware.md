@@ -4,6 +4,30 @@
 
 ASP.NET Core アプリは、service registration と middleware pipeline の組み合わせで動きます。Krafter では `AddBackendServices()` が DB、認証、永続化、通知、validation、jobs、SignalR、OpenAPI を登録し、`UseBackendMiddleware()` が exception、multi-tenancy、auth の middleware を pipeline に追加します。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| Service registration | DI container に service を登録すること | `builder.Services.AddScoped(...)` |
+| Lifetime | service instance をどれくらい使い回すか | Scoped / Singleton / Transient |
+| Options pattern | 設定値を型として扱う仕組み | `JwtSettings` |
+| Middleware | HTTP request の通り道に入る処理 | exception、tenant、auth |
+| Pipeline | middleware が並ぶ順序 | `Use...` の順番が意味を持つ |
+
+## 図で見る Backend pipeline
+
+```mermaid
+flowchart LR
+    Request["HTTP Request"] --> Forwarded["UseForwardedHeaders"]
+    Forwarded --> Compression["UseResponseCompression"]
+    Compression --> Exception["ExceptionMiddleware"]
+    Exception --> Tenant["MultiTenantServiceMiddleware"]
+    Tenant --> Auth["AuthMiddleware"]
+    Auth --> Endpoint["MapBackendEndpoints"]
+```
+
+Middleware は順番が大事です。たとえば tenant が決まる前に DbContext query が動くと、tenant-aware な filter が正しく働きません。
+
 ## Krafterでの実装
 
 - Backend service registration: [src/AditiKraft.Krafter.Backend/Web/HostingExtensions.cs](../../../src/AditiKraft.Krafter.Backend/Web/HostingExtensions.cs)
@@ -14,6 +38,21 @@ ASP.NET Core アプリは、service registration と middleware pipeline の組�
 - UI host middleware: [src/UI/AditiKraft.Krafter.UI.Web/Program.cs](../../../src/UI/AditiKraft.Krafter.UI.Web/Program.cs)
 
 `AddOptions<JwtSettings>().BindConfiguration(...).ValidateDataAnnotations().ValidateOnStart()` は、設定ファイルの値を型付き option として検証する例です。
+
+## DI と Options のコード例
+
+```csharp
+builder.Services.AddOptions<JwtSettings>()
+    .BindConfiguration($"SecuritySettings:{nameof(JwtSettings)}")
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
+```
+
+`AddScoped` は request ごとに service instance を作る lifetime です。DbContext や user/role service のように request の文脈を持つ処理は scoped が自然です。`ValidateOnStart` は設定値の不足を起動時に見つけるための保険です。
 
 ## 実務で必要な知識
 

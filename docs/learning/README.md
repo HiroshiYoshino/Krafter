@@ -4,6 +4,44 @@
 
 Krafter は単なるサンプルではなく、`dotnet new` で利用する .NET 10 のフルスタックアプリケーションテンプレートです。学習では、まずテンプレートとしての使い方を理解し、その後に ASP.NET Core、Blazor、Entity Framework Core、認証、Aspire、配信の順に広げていきます。
 
+## 移動中に読むためのコツ
+
+この記事群は、手を動かせない時間でも理解できるように「キーワード」「図」「小さなコード例」を足しています。まず本文を読み、知らない言葉が出たら各記事のキーワード欄だけ見返してください。実装リンクは、あとで PC の前に戻ったときに確認するための地図です。
+
+読み進めるときは、細かい API 名を暗記するよりも、次の 3 つを意識すると腹落ちしやすくなります。
+
+- request はどこから入り、どの project を通って database や UI に届くのか。
+- 共通化されている仕組みは何で、feature ごとに書くべきものは何か。
+- local development、authentication、migration、deployment の責務がどの層に分かれているか。
+
+## 全体図
+
+```mermaid
+flowchart TD
+    Template["dotnet new krafter / krafter-single"] --> App["Generated Krafter App"]
+    App --> Contracts["Contracts<br/>DTO / routes / permissions"]
+    App --> Backend["Backend<br/>Minimal APIs / VSA / EF Core"]
+    App --> UI["UI<br/>Blazor Web App / WebAssembly / Radzen"]
+    App --> Aspire["Aspire AppHost<br/>PostgreSQL / Migrator / Dashboard"]
+    Backend --> Data["PostgreSQL<br/>Application / Tenant / Jobs contexts"]
+    UI --> ApiCalls["Refit clients<br/>tenant-aware API calls"]
+    Aspire --> Observability["OpenTelemetry<br/>health checks / service discovery"]
+```
+
+Mermaid が表示されない環境では、上から「テンプレートでアプリ生成」「Contracts/Backend/UI/Aspire に分かれる」「Backend は database、UI は API 呼び出し、Aspire は起動と観測を担当」と読んでください。
+
+## キーワード早見表
+
+| キーワード | ざっくりした意味 | Krafter で見る場所 |
+|---|---|---|
+| `dotnet new` | テンプレートから新しい project を作る CLI | `.template.config/` |
+| Contracts | Backend と UI が共有する DTO、route、permission | `src/AditiKraft.Krafter.Contracts/` |
+| VSA | ユースケース単位で Backend code をまとめる構成 | `src/AditiKraft.Krafter.Backend/Features/` |
+| Minimal APIs | Controller ではなく `MapGet` などで endpoint を作る方式 | Backend の `Features/*/*.cs` |
+| Blazor Web App | Server と WebAssembly の render mode を扱う UI | `src/UI/` |
+| EF Core | C# から database を扱う ORM | `ApplicationDbContext.cs` |
+| Aspire AppHost | local 開発時の複数 service 起動と dashboard | `aspire/.../Program.cs` |
+
 ## 学習順
 
 1. [基礎: .NET CLI と SDK](01-foundation/01-dotnet-cli-and-sdk.md)

@@ -4,6 +4,35 @@
 
 Krafter の UI は Radzen component で画面を作り、Refit で Backend API を type-safe に呼び出します。画面 component は Refit interface を直接呼ぶのではなく、多くの場合 `ApiCallService` を通じて共通の成功/失敗処理に乗せます。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| Radzen | Blazor UI component library | DataGrid、Dialog、Button |
+| Refit | interface から HTTP client を作る library | `IUsersApi` |
+| DelegatingHandler | HTTP request の前後処理 | tenant header、auth token |
+| `ApiCallService` | API response の共通処理 wrapper | notification/error handling |
+| Server-side paging | 必要な page だけ API から取る方式 | `LoadDataArgs` と `GetRequestInput` |
+
+## 図で見る UI から API まで
+
+```mermaid
+sequenceDiagram
+    participant Page as Blazor Page
+    participant ApiCall as ApiCallService
+    participant Refit as Refit client
+    participant Handler as RefitTenant/AuthHandler
+    participant Backend
+
+    Page->>ApiCall: CallAsync(() => usersApi.GetUsersAsync(input))
+    ApiCall->>Refit: invoke interface method
+    Refit->>Handler: build HttpRequestMessage
+    Handler->>Backend: add tenant/auth headers
+    Backend-->>Page: Response<PaginationResponse<UserDto>>
+```
+
+Refit interface は「HTTP request の型付き説明書」です。実際の URL や header は handler が補います。
+
 ## Krafterでの実装
 
 - UI agent rules: [src/UI/Agents.md](../../../src/UI/Agents.md)
@@ -15,6 +44,23 @@ Krafter の UI は Radzen component で画面を作り、Refit で Backend API �
 - API call wrapper: [src/UI/AditiKraft.Krafter.UI.Web.Client/Infrastructure/Services/ApiCallService.cs](../../../src/UI/AditiKraft.Krafter.UI.Web.Client/Infrastructure/Services/ApiCallService.cs)
 
 `RefitServiceExtensions` は `IUsersApi`、`IRolesApi`、`ITenantsApi` などを登録し、`RefitTenantHandler` と `RefitAuthHandler` を message handler として差し込みます。
+
+## Refit interface のコード例
+
+```csharp
+public interface IUsersApi
+{
+    [Get("/api/users")]
+    Task<Response<PaginationResponse<UserDto>>> GetUsersAsync(
+        [Query] GetRequestInput request,
+        CancellationToken cancellationToken = default);
+
+    [Delete("/api/users/{id}")]
+    Task<Response> DeleteUserAsync(string id, CancellationToken cancellationToken = default);
+}
+```
+
+`[Query]` は object の property を query string に展開します。`{id}` のような route parameter は method parameter 名と一致させると読みやすく、Refit の binding も安全です。
 
 ## 実務で必要な知識
 

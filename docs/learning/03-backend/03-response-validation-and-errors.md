@@ -4,6 +4,29 @@
 
 Krafter の API は raw object を直接返すのではなく、`Response` または `Response<T>` に包んで返します。Validation は FluentValidation を使い、想定外の例外は exception middleware で一貫した response に変換します。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| `Response<T>` | API response の共通 wrapper | `Data`, `IsError`, `StatusCode` |
+| Validation | request が正しい形か確認する処理 | FluentValidation |
+| Business error | 想定内の失敗 | `BadRequest`, `NotFound`, `Conflict` |
+| Exception | 想定外の失敗 | `ExceptionMiddleware` が扱う |
+| Error shape | UI が扱いやすい失敗 response の形 | `ErrorResult` |
+
+## 図で見る成功と失敗
+
+```mermaid
+flowchart TD
+    Handler["Handler"] --> Valid{"入力や状態は正しい?"}
+    Valid -->|Yes| Success["Response<T>.Success(data)"]
+    Valid -->|No| Business["Response.BadRequest / NotFound / Conflict"]
+    Handler -->|unexpected exception| Middleware["ExceptionMiddleware"]
+    Middleware --> Error["共通 error response"]
+```
+
+入門者が混乱しやすい点は、「失敗がすべて例外ではない」ということです。重複 email や存在しない id など、予想できる失敗は response として返します。
+
 ## Krafterでの実装
 
 - Shared response model: [src/AditiKraft.Krafter.Contracts/Common/Models/Response.cs](../../../src/AditiKraft.Krafter.Contracts/Common/Models/Response.cs)
@@ -14,6 +37,31 @@ Krafter の API は raw object を直接返すのではなく、`Response` ま�
 - Request validator example: [src/AditiKraft.Krafter.Contracts/Contracts/Users/CreateUserRequest.cs](../../../src/AditiKraft.Krafter.Contracts/Contracts/Users/CreateUserRequest.cs)
 
 `Response<T>` には `IsError`、`StatusCode`、`Data`、`Message`、`Error` があり、UI はこれを見て成功/失敗を判断します。
+
+## Response と Validator のコード例
+
+```csharp
+public static Response<T> Success(T data, string? message = null) => new()
+{
+    IsError = false,
+    StatusCode = (int)HttpStatusCode.OK,
+    Data = data,
+    Message = message
+};
+```
+
+```csharp
+public class CreateUserRequestValidator : AbstractValidator<CreateUserRequest>
+{
+    public CreateUserRequestValidator()
+    {
+        RuleFor(p => p.FirstName).NotEmpty();
+        RuleFor(p => p.Email).NotEmpty().EmailAddress();
+    }
+}
+```
+
+Response は API と UI の会話の形をそろえます。Validator は request の入口で「そもそも処理してよい入力か」を判断します。この 2 つを分けると、handler の中に if 文が増えすぎるのを防げます。
 
 ## 実務で必要な知識
 

@@ -4,6 +4,33 @@
 
 Krafter の local development は .NET Aspire AppHost を中心にしています。AppHost は PostgreSQL、Migrator、Backend、UI を resource として宣言し、依存関係、service discovery、dashboard、OpenTelemetry、health checks を扱いやすくします。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| AppHost | local orchestration の入口 project | `aspire/...AppHost/Program.cs` |
+| Resource | AppHost が管理する service/container/project | PostgreSQL、api、web |
+| Service defaults | 各 service に共通で入れる設定 | telemetry、health、discovery |
+| OpenTelemetry | logs/traces/metrics の標準 | Aspire dashboard で観測 |
+| Health check | app/resource が動ける状態か確認する仕組み | `/health`, `/alive` |
+| Service discovery | service 名から endpoint を解決する仕組み | `WithReference` |
+
+## 図で見る AppHost
+
+```mermaid
+flowchart TD
+    AppHost["Aspire AppHost"] --> Postgres["PostgreSQL container"]
+    AppHost --> Migrator["app-migrator executable"]
+    AppHost --> Api["Backend API project"]
+    AppHost --> Web["Blazor Web project"]
+    Api --> Defaults["ServiceDefaults<br/>telemetry / health / discovery"]
+    Web --> Defaults
+    Migrator --> Postgres
+    Api --> Postgres
+```
+
+AppHost は「全部を起動する main method」です。Docker Compose のような役割を C# code で宣言している、と考えると理解しやすいです。
+
 ## Krafterでの実装
 
 - Split Host AppHost: [aspire/AditiKraft.Krafter.Aspire.AppHost/Program.cs](../../../aspire/AditiKraft.Krafter.Aspire.AppHost/Program.cs)
@@ -14,6 +41,22 @@ Krafter の local development は .NET Aspire AppHost を中心にしていま�
 - UI Web startup: [src/UI/AditiKraft.Krafter.UI.Web/Program.cs](../../../src/UI/AditiKraft.Krafter.UI.Web/Program.cs)
 
 `AddServiceDefaults()` は OpenTelemetry、health checks、service discovery、HttpClient resilience をまとめて登録します。`MapDefaultEndpoints()` は development environment で `/health` と `/alive` を map します。
+
+## ServiceDefaults のコード例
+
+```csharp
+builder.ConfigureOpenTelemetry();
+builder.AddDefaultHealthChecks();
+builder.Services.AddServiceDiscovery();
+
+builder.Services.ConfigureHttpClientDefaults(http =>
+{
+    http.AddStandardResilienceHandler();
+    http.AddServiceDiscovery();
+});
+```
+
+この code は、各 service に「観測できる」「生存確認できる」「他 service を見つけられる」「HTTP 呼び出しに resilience がある」という基本装備を持たせています。
 
 ## 実務で必要な知識
 

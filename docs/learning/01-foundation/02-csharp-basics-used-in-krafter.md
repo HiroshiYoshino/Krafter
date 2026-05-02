@@ -4,6 +4,58 @@
 
 Krafter のコードを読むには、C# の文法を広く全部覚えるより、実装で頻出する形を先に押さえるのが近道です。特に nullable reference types、file-scoped namespace、primary constructor、`async` / `await`、dependency injection 前提のクラス設計を理解すると、Backend と UI のどちらも追いやすくなります。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| Nullable reference types | `null` になり得る参照を型で表す仕組み | `string` と `string?` を使い分けます |
+| `default!` | 「あとで値が入る」と compiler に伝える記法 | DTO の non-null property で使われます |
+| File-scoped namespace | file 全体の namespace を 1 行で書く形式 | `namespace AditiKraft.Krafter...;` |
+| Primary constructor | class 宣言の横で constructor parameter を受け取る形式 | DI service を短く受け取れます |
+| `async` / `await` | 待ち時間のある処理を非同期に書く仕組み | DB、HTTP、SignalR で頻出します |
+| CancellationToken | 処理中断の合図を渡す型 | API request の終了や timeout に対応します |
+
+## コードで見る頻出パターン
+
+```csharp
+namespace AditiKraft.Krafter.Backend.Features.Users;
+
+public sealed class GetUsers
+{
+    internal sealed class Handler(ApplicationDbContext db) : IScopedHandler
+    {
+        public async Task<Response<PaginationResponse<UserDto>>> GetAsync(
+            GetRequestInput request,
+            CancellationToken cancellationToken)
+        {
+            List<UserDto> users = await db.Users
+                .Select(user => new UserDto
+                {
+                    Id = user.Id,
+                    Email = user.Email
+                })
+                .ToListAsync(cancellationToken);
+
+            return Response<PaginationResponse<UserDto>>.Success(
+                new PaginationResponse<UserDto>(users, users.Count, request.SkipCount, request.MaxResultCount));
+        }
+    }
+}
+```
+
+この例で見てほしいのは、`ApplicationDbContext db` が primary constructor で渡されること、database query が `await` されること、戻り値が `Response<T>` に包まれることです。
+
+## 図で見る依存関係の受け渡し
+
+```mermaid
+flowchart LR
+    Services["DI container"] --> Handler["Handler(ApplicationDbContext db)"]
+    Handler --> Db["ApplicationDbContext"]
+    Handler --> Response["Response<T>"]
+```
+
+自分で `new Handler(...)` するのではなく、ASP.NET Core の DI container が必要な service を作って渡します。これが読めると、Krafter の constructor が急に短く見えてきます。
+
 ## Krafterでの実装
 
 - Backend entry point: [src/AditiKraft.Krafter.Backend/Program.cs](../../../src/AditiKraft.Krafter.Backend/Program.cs)

@@ -4,6 +4,38 @@
 
 Krafter の認証は ASP.NET Core Identity、JWT bearer authentication、refresh token、Google external auth を組み合わせています。Backend が token を発行し、UI は Blazor の authentication state と storage/cookie を使って sign-in 状態を扱います。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| Authentication | 「誰か」を確認する処理 | login、JWT validation |
+| Authorization | 「何をしてよいか」を判断する処理 | permission policy |
+| Identity | user、role、password、claim を扱う ASP.NET Core の仕組み | `ApplicationUser`, `ApplicationRole` |
+| JWT | 署名付き token | API request の bearer token |
+| Refresh token | access token を再発行するための token | `RefreshToken.cs` |
+| External auth | Google など外部 provider による login | `ExternalLogin.cs` |
+
+## 図で見る login と refresh
+
+```mermaid
+sequenceDiagram
+    participant UI
+    participant Backend
+    participant Identity
+    participant Storage
+
+    UI->>Backend: email/password or Google code
+    Backend->>Identity: user を検証
+    Backend-->>UI: access token + refresh token
+    UI->>Storage: token を保存
+    UI->>Backend: API request with bearer token
+    Backend-->>UI: token expired
+    UI->>Backend: refresh token request
+    Backend-->>UI: new access token
+```
+
+access token は短め、refresh token は再発行用、という役割分担です。どちらも secret として扱います。
+
 ## Krafterでの実装
 
 - Auth DI: [src/AditiKraft.Krafter.Backend/Web/DependencyInjection.cs](../../../src/AditiKraft.Krafter.Backend/Web/DependencyInjection.cs)
@@ -15,6 +47,21 @@ Krafter の認証は ASP.NET Core Identity、JWT bearer authentication、refresh
 - Server cookie middleware: [src/UI/AditiKraft.Krafter.UI.Web/Services/AuthCookieMiddleware.cs](../../../src/UI/AditiKraft.Krafter.UI.Web/Services/AuthCookieMiddleware.cs)
 
 Backend の `AddAuthServices` は Identity user/role、permission、token service、Google auth client、JWT bearer を登録します。
+
+## JWT bearer 設定の読みどころ
+
+```csharp
+options.TokenValidationParameters = new TokenValidationParameters
+{
+    ValidateIssuerSigningKey = true,
+    IssuerSigningKey = new SymmetricSecurityKey(key),
+    ValidateLifetime = true,
+    RoleClaimType = ClaimTypes.Role,
+    ClockSkew = TimeSpan.Zero
+};
+```
+
+ここでは「署名 key が正しいか」「期限切れでないか」「role claim をどう読むか」を決めています。JWT は文字列ですが、Backend はこの validation を通った token だけを認証済み request として扱います。
 
 ## 実務で必要な知識
 

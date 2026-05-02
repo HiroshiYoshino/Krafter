@@ -4,6 +4,36 @@
 
 EF Core migrations は、C# の model 変更を database schema の変更履歴として管理する仕組みです。Krafter では migrations を手動で database に適用するのではなく、Aspire AppHost が short-lived migrator process を起動し、main app の前に migration を適用します。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| Migration | schema 変更の履歴 file | `Migrations/*.cs` |
+| Model snapshot | 現在の EF model の記録 | `*ModelSnapshot.cs` |
+| Design-time factory | CLI が DbContext を作るための補助 | `DesignTimeDbContextFactory.cs` |
+| Migrator | migration 適用専用の process | `Backend.Migrator` |
+| `WaitForCompletion` | 依存 resource の完了を待つ Aspire API | API/UI が migrator を待つ |
+
+## 図で見る起動順序
+
+```mermaid
+sequenceDiagram
+    participant AppHost
+    participant Postgres
+    participant Migrator
+    participant Api
+    participant Web
+
+    AppHost->>Postgres: start
+    AppHost->>Migrator: run after database ready
+    Migrator->>Postgres: apply EF Core migrations
+    Migrator-->>AppHost: completed
+    AppHost->>Api: start after migrator
+    AppHost->>Web: start after backend/database references
+```
+
+この順番を覚えると、起動時に API が落ちたとき「まず migrator の log を見る」という判断ができます。
+
 ## Krafterでの実装
 
 - Migration workflow: [README.md](../../../README.md)
@@ -15,6 +45,37 @@ EF Core migrations は、C# の model 変更を database schema の変更履歴�
 - Background job migrations: [src/AditiKraft.Krafter.Backend/Migrations/BackgroundJobs/](../../../src/AditiKraft.Krafter.Backend/Migrations/BackgroundJobs/)
 
 AppHost では `app-migrator` executable を `AddExecutable` で登録し、database を `WaitFor(database)` で待ちます。API と UI は `WaitForCompletion(migrator)` によって migrator 完了後に起動します。
+
+## migration command の読み方
+
+```bash
+dotnet ef migrations add AddProjects \
+  --project src/AditiKraft.Krafter.Backend \
+  --context ApplicationDbContext
+```
+
+`--project` は migration を追加する project、`--context` は対象 DbContext です。Krafter には複数 DbContext があるため、ここを間違えると違う migration folder に変更が出ます。
+
+## AppHost 側の簡略コード
+
+```csharp
+IResourceBuilder<ExecutableResource> migrator = builder.AddExecutable(
+        "app-migrator",
+        "dotnet",
+        solutionRoot,
+        "run",
+        "--project",
+        migratorProject,
+        "--no-launch-profile")
+    .WithReference(database)
+    .WaitFor(database);
+
+builder.AddProject<Projects.AditiKraft_Krafter_Backend>("api")
+    .WithReference(database)
+    .WaitForCompletion(migrator);
+```
+
+ここでは migrator が「起動しっぱなしの service」ではなく、「完了したら終わる executable」として扱われています。
 
 ## 実務で必要な知識
 

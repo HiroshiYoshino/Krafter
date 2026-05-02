@@ -4,6 +4,30 @@
 
 Krafter の永続化は Entity Framework Core と PostgreSQL が中心です。EF Core は C# の entity と `DbContext` を通じて database を扱う ORM です。PostgreSQL への接続には Npgsql provider を使います。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| ORM | object と database table を対応させる仕組み | EF Core |
+| `DbContext` | database との作業単位 | `ApplicationDbContext` |
+| `DbSet<T>` | table に近い query/update の入口 | `Users`, `UserRefreshTokens` |
+| LINQ | C# で query を書く構文 | `Where`, `Select`, `OrderBy` |
+| Change tracker | entity の変更状態を追跡する仕組み | `SaveChangesAsync` 前に働きます |
+| Provider | DB 製品ごとの差を吸収する library | Npgsql for PostgreSQL |
+
+## 図で見る EF Core の流れ
+
+```mermaid
+flowchart LR
+    Handler["Handler"] --> DbContext["ApplicationDbContext"]
+    DbContext --> LINQ["LINQ query"]
+    LINQ --> Provider["Npgsql provider"]
+    Provider --> PostgreSQL["PostgreSQL"]
+    PostgreSQL --> Result["DTO / Entity"]
+```
+
+EF Core は SQL を完全に隠す魔法ではありません。C# の LINQ が SQL に変換され、provider が PostgreSQL に合わせて実行します。
+
 ## Krafterでの実装
 
 - Database registration: [src/AditiKraft.Krafter.Backend/Web/Configuration/DatabaseConfiguration.cs](../../../src/AditiKraft.Krafter.Backend/Web/Configuration/DatabaseConfiguration.cs)
@@ -13,6 +37,28 @@ Krafter の永続化は Entity Framework Core と PostgreSQL が中心です。E
 - Database selector: [src/AditiKraft.Krafter.Backend/Common/DatabaseSelected.cs](../../../src/AditiKraft.Krafter.Backend/Common/DatabaseSelected.cs)
 
 `DatabaseConfiguration` は `appDb` connection string を読み、`UseNpgsql(connectionString)` で PostgreSQL provider を設定します。Krafter では application、tenant registry、background jobs の 3 つの DbContext が同じ database connection を使います。
+
+## DbContext 登録のコード例
+
+```csharp
+services.AddDbContext<ApplicationDbContext>(opts =>
+{
+    opts.UseNpgsql(connectionString);
+});
+```
+
+```csharp
+List<UserDto> items = await db.Users
+    .Where(user => !user.IsDeleted)
+    .Select(user => new UserDto
+    {
+        Id = user.Id,
+        Email = user.Email
+    })
+    .ToListAsync(cancellationToken);
+```
+
+Krafter では実際には global query filter があるため、毎回 `!user.IsDeleted` を書くわけではありません。この例は「LINQ query が DTO に投影され、`ToListAsync` で実行される」という流れを見るためのものです。
 
 ## 実務で必要な知識
 

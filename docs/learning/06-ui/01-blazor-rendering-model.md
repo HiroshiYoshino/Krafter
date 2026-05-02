@@ -4,6 +4,28 @@
 
 Krafter の UI は Blazor Web App と Blazor WebAssembly client を組み合わせています。Server 側 host が初期 HTML、static assets、authentication cookie などを扱い、Client project が interactive WebAssembly component を提供します。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| Razor component | Blazor の UI 部品 | `.razor` file |
+| Render mode | component をどこで interactive にするか | Interactive WebAssembly / Server |
+| Prerender | 最初に server で HTML を生成すること | 初期表示を速くできます |
+| WebAssembly | browser 内で .NET code を実行する仕組み | `UI.Web.Client` |
+| Code-behind | markup と C# logic を分ける書き方 | `.razor` + `.razor.cs` |
+
+## 図で見る Blazor の構成
+
+```mermaid
+flowchart TD
+    Browser["Browser"] --> Web["UI.Web<br/>server host"]
+    Web --> InitialHtml["initial HTML / assets"]
+    Browser --> Wasm["UI.Web.Client<br/>WebAssembly runtime"]
+    Wasm --> Components["Razor components<br/>Radzen UI"]
+```
+
+Krafter の UI は「server だけ」でも「standalone WebAssembly だけ」でもありません。server host と WebAssembly client の役割を分けて読むのがコツです。
+
 ## Krafterでの実装
 
 - Blazor Web host startup: [src/UI/AditiKraft.Krafter.UI.Web/Program.cs](../../../src/UI/AditiKraft.Krafter.UI.Web/Program.cs)
@@ -13,6 +35,25 @@ Krafter の UI は Blazor Web App と Blazor WebAssembly client を組み合わ�
 - Layout component: [src/UI/AditiKraft.Krafter.UI.Web.Client/Common/Components/Layout/MainLayout.razor](../../../src/UI/AditiKraft.Krafter.UI.Web.Client/Common/Components/Layout/MainLayout.razor)
 
 `App.razor` では `InteractiveWebAssemblyRenderMode(true)` を使い、`Routes` と `HeadOutlet` に render mode を渡しています。`Program.cs` は `.AddInteractiveServerComponents()` と `.AddInteractiveWebAssemblyComponents()` を登録します。
+
+## render mode のコード例
+
+```razor
+@{
+    IComponentRenderMode renderMode = new InteractiveWebAssemblyRenderMode(true);
+}
+
+<Routes @rendermode="@renderMode" />
+<HeadOutlet @rendermode="@renderMode" />
+```
+
+```csharp
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents()
+    .AddInteractiveWebAssemblyComponents();
+```
+
+上の Razor は「この component を WebAssembly で interactive にする」指定です。下の C# は「この app で Server/WebAssembly の interactive render mode を使えるようにする」登録です。
 
 ## 実務で必要な知識
 

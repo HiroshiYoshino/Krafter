@@ -4,6 +4,31 @@
 
 Krafter は tenant-aware な SaaS アプリを作るための構造を持っています。tenant は request から識別され、DbContext の global query filter によって tenant ごとの data に絞り込まれます。また、削除は物理削除ではなく soft delete として扱われます。
 
+## キーワード
+
+| キーワード | 意味 | Krafter での見え方 |
+|---|---|---|
+| Tenant | SaaS の顧客/組織単位 | root tenant、sub tenant |
+| Tenant identifier | request から tenant を特定する文字列 | host や `x-tenant-identifier` |
+| Global query filter | query に自動で追加される条件 | `TenantId == currentTenant.Id` |
+| Soft delete | row を消さず削除済み flag を立てる方式 | `IsDeleted = true` |
+| Tenant context | 現在の request の tenant 情報 | `CurrentTenantService` |
+
+## 図で見る tenant 解決
+
+```mermaid
+flowchart TD
+    Request["HTTP Request"] --> Source{"tenant はどこから?"}
+    Source --> Host["subdomain / host"]
+    Source --> Header["x-tenant-identifier header"]
+    Host --> Finder["TenantFinderService"]
+    Header --> Finder
+    Finder --> Context["CurrentTenantService"]
+    Context --> DbContext["ApplicationDbContext query filter"]
+```
+
+tenant は UI だけの概念ではありません。Backend の request pipeline と DbContext の query filter までつながって初めて、tenant ごとの data isolation が成立します。
+
 ## Krafterでの実装
 
 - Tenant context service: [src/AditiKraft.Krafter.Backend/Common/Context/Tenants/CurrentTenantService.cs](../../../src/AditiKraft.Krafter.Backend/Common/Context/Tenants/CurrentTenantService.cs)
@@ -14,6 +39,27 @@ Krafter は tenant-aware な SaaS アプリを作るための構造を持って�
 - Tenant URL resolver in UI: [src/UI/AditiKraft.Krafter.UI.Web.Client/Infrastructure/Http/TenantIdentifier.cs](../../../src/UI/AditiKraft.Krafter.UI.Web.Client/Infrastructure/Http/TenantIdentifier.cs)
 
 Backend は request host または `x-tenant-identifier` header から tenant を決めます。UI の Refit handler は request ごとに tenant header を付け、backend URL も tenant に応じて書き換えます。
+
+## query filter と soft delete のイメージ
+
+```csharp
+modelBuilder.Entity<ApplicationUser>(entity =>
+{
+    entity.HasQueryFilter(user =>
+        user.IsDeleted == false &&
+        user.TenantId == tenantGetterService.Tenant.Id);
+});
+```
+
+```csharp
+case EntityState.Deleted:
+    entry.State = EntityState.Modified;
+    entry.CurrentValues["IsDeleted"] = true;
+    SetTenantAndHistoryInfo(entry);
+    break;
+```
+
+この 2 つが組み合わさると、削除操作は database row の削除ではなく `IsDeleted = true` への更新になり、通常 query からは見えなくなります。
 
 ## 実務で必要な知識
 
