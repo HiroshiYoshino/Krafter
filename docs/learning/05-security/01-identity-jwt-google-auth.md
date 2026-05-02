@@ -12,6 +12,7 @@ Krafter の認証は ASP.NET Core Identity、JWT bearer authentication、refresh
 | Authorization | 「何をしてよいか」を判断する処理 | permission policy |
 | Identity | user、role、password、claim を扱う ASP.NET Core の仕組み | `ApplicationUser`, `ApplicationRole` |
 | JWT | 署名付き token | API request の bearer token |
+| Claim | token に含まれる key-value の属性情報 | userId、email、role などが claim として格納されます |
 | Refresh token | access token を再発行するための token | `RefreshToken.cs` |
 | External auth | Google など外部 provider による login | `ExternalLogin.cs` |
 
@@ -50,18 +51,22 @@ Backend の `AddAuthServices` は Identity user/role、permission、token servic
 
 ## JWT bearer 設定の読みどころ
 
+以下は実際の Krafter の設定から読みどころのパラメータを抴粹した例です。「ValidateIssuer=false」「ValidateAudience=false」は Krafter が定義しており、その代わりに `LifetimeValidator` でトークンの有効期限を厳密に検証しています。
+
 ```csharp
 options.TokenValidationParameters = new TokenValidationParameters
 {
     ValidateIssuerSigningKey = true,
     IssuerSigningKey = new SymmetricSecurityKey(key),
+    ValidateIssuer = false,       // マルチテナント構成で発行者名を固定しない方針
     ValidateLifetime = true,
+    ValidateAudience = false,     // 同様に audience も固定しない方針
     RoleClaimType = ClaimTypes.Role,
-    ClockSkew = TimeSpan.Zero
+    ClockSkew = TimeSpan.Zero     // 有効期限切れを即座に検出（デフォルト 5 分のバッファを除去）
 };
 ```
 
-ここでは「署名 key が正しいか」「期限切れでないか」「role claim をどう読むか」を決めています。JWT は文字列ですが、Backend はこの validation を通った token だけを認証済み request として扱います。
+`ClockSkew = TimeSpan.Zero` は、token の有効期限切れに 5 分のデフォルトバッファを与えない設定です。access token を短命にする Krafter の方针に合わせて、期限切れを即座に検出します。
 
 ## 実務で必要な知識
 

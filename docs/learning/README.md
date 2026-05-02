@@ -39,8 +39,12 @@ Mermaid が表示されない環境では、上から「テンプレートでア
 | VSA | ユースケース単位で Backend code をまとめる構成 | `src/AditiKraft.Krafter.Backend/Features/` |
 | Minimal APIs | Controller ではなく `MapGet` などで endpoint を作る方式 | Backend の `Features/*/*.cs` |
 | Blazor Web App | Server と WebAssembly の render mode を扱う UI | `src/UI/` |
+| Server rendering | サーバー側で HTML を生成する rendering | `UI.Web`（サーバー host）|
+| WebAssembly rendering | ブラウザ内で .NET が動く rendering | `UI.Web.Client`（client project）|
 | EF Core | C# から database を扱う ORM | `ApplicationDbContext.cs` |
 | Aspire AppHost | local 開発時の複数 service 起動と dashboard | `aspire/.../Program.cs` |
+| Multi-tenant | 複数組織を 1 アプリで管理する設計 | `X-Tenant-Id` header / `MultiTenantServiceMiddleware` |
+| PermissionCatalog | 機能ごとのアクセス権限を定義するカタログ | `src/AditiKraft.Krafter.Contracts/Common/Auth/` |
 
 ## 学習順
 
@@ -83,9 +87,18 @@ Krafter を実務で使うには、個別技術を暗記するよりも「変更
 
 また、Krafter はローカル開発を Aspire AppHost に寄せています。通常は個別プロジェクトを直接起動するより、AppHost を起動し、PostgreSQL、Migrator、API、UI の依存関係をまとめて見るほうが理解しやすいです。
 
-## 確認課題
+## 確認課題（入門観察）
 
-- `README.md` の「Template Variants」を読み、Split Host と Single Host の違いを自分の言葉で説明する。
+まずはファイルを開いて見ることから始めましょう。
+
+- `aspire/AditiKraft.Krafter.Aspire.AppHost/Program.cs` を開き、何個のリソース（PostgreSQL、Migrator、API、UI）が起動するか数える。
+- `src/AditiKraft.Krafter.Contracts/` に何個のフォルダがあるか確認する。
+- Aspire AppHost を起動してみる。起動後に開く Dashboard URL（一般的に `https://localhost:15888` 付近）をおかりのポートに対応する。各 resource の Status が `Running` になれば起動成功。
+
+## 読み終えた後の総合演習
+
+全記事を読み終えたら、次の追跡履習を試してみてください。
+
 - `src/AditiKraft.Krafter.Backend/Features/Users/GetUsers.cs` と `src/UI/AditiKraft.Krafter.UI.Web.Client/Features/Users/Users.razor.cs` を開き、一覧画面の API 呼び出しがどのようにつながるか追跡する。
 - `aspire/AditiKraft.Krafter.Aspire.AppHost/Program.cs` を読み、どのリソースがどの順番で起動するか整理する。
 

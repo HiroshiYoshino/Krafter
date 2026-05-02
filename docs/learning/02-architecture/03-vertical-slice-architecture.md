@@ -25,6 +25,7 @@ flowchart LR
 ```
 
 従来の「Controller 層、Service 層、Repository 層」を横に分ける見方ではなく、「ユーザー一覧を取得する」という 1 つの目的で必要なものを近くに置くのが VSA の感覚です。
+従来のレイヤー構成では `UsersController`、`IUserService`、`UserService`、`IUserRepository`、`UserRepository` が別々のフォルダに分散します。VSA では `GetUsers.cs` 1 ファイルに handler と route が近くに置かれるため、機能変更の影響範囲が 1 か所で完結しやすくなります。
 
 ## Krafterでの実装
 
@@ -36,6 +37,8 @@ flowchart LR
 - Handler auto registration: [src/AditiKraft.Krafter.Backend/Infrastructure/Persistence/PersistenceConfiguration.cs](../../../src/AditiKraft.Krafter.Backend/Infrastructure/Persistence/PersistenceConfiguration.cs)
 
 Krafter の operation は、`Handler` が処理を実行し、`Route` が Minimal API endpoint を map します。DTO と validator は Contracts 側に置き、Backend-only DTO を増やさない方針です。
+
+`IRouteRegistrar` の実装クラスは、起動時のリフレクションスキャンで自動検出され、`MapRoute` が呼び出されます。おかげで新しい `Route` クラスを追加するだけで自動的に endpoint が登録される設計になっています。同様に `IScopedHandler` を実装した `Handler` クラスもリフレクションで一括登録されます。
 
 ## operation file の最小形
 
@@ -70,6 +73,8 @@ public sealed class GetActiveUsers
 
 これは説明用の簡略例です。実際の Krafter では `GetUsers.cs` のように pagination、validation filter、`.Produces<Response<T>>()`、route constants を既存 pattern に合わせます。
 
+> **`.MustHavePermission` について**: endpoint にアクセス制御を付ける拡張メソッドです。`PermissionAction.View` や `PermissionResource.Users` のような定数は `PermissionCatalog` で管理されています。Permission の詳細は第 14 回で説明します。
+
 ## 実務で必要な知識
 
 VSA の利点は、機能変更の影響範囲を見つけやすいことです。たとえば user 一覧の条件を変えるなら `GetUsers.cs` を中心に読めます。従来の Controller、Service、Repository、DTO、Profile がばらばらに分散する構造より、ひとつの use case を追いやすくなります。
@@ -81,7 +86,7 @@ VSA の利点は、機能変更の影響範囲を見つけやすいことです�
 ## 確認課題
 
 - `GetUsers.cs` の `Handler` と `Route` の責務を分けて説明する。
-- `PersistenceConfiguration.cs` が `IScopedHandler` 実装をどのように DI 登録しているか読む。
+- `src/AditiKraft.Krafter.Backend/Features/Users/GetUsers.cs` を開き、Handler クラスと Route クラスがどのような役割分担をしているか自分の言葉でメモする。
 - 新しい `Projects` 一覧 endpoint を追加すると仮定し、Contracts / Backend / UI の変更場所をメモする。
 
 ## 出典リンク

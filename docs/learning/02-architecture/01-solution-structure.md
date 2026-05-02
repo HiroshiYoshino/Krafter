@@ -53,6 +53,10 @@ flowchart LR
 
 Contracts は Backend と UI の両方から参照される DTO、route、permission、共通 model を持ちます。Backend は API、Identity、EF Core、jobs、SignalR を持ちます。UI.Web は Blazor Web App の server 側 host で、UI.Web.Client は WebAssembly 側の画面と client service を持ちます。
 
+> **Blazor の render mode について**: UI.Web は server 側で HTML を生成する **Server rendering** を、UI.Web.Client はブラウザ内で .NET が動く **WebAssembly rendering** を担当します。Blazor の rendering 詳細は第 15 回で学びます。
+
+> **マルチテナントについて**: Krafter は複数の組織（テナント）を 1 つのアプリで管理するマルチテナント設計です。各 API リクエストには `X-Tenant-Id` ヘッダーが付き、Backend はそれでデータを分離します。詳細は第 12 回で学びます。
+
 ## 新機能を追加するときの mental model
 
 ```text
@@ -68,7 +72,7 @@ Contracts は Backend と UI の両方から参照される DTO、route、permis
 
 Krafter で新機能を作る場合、変更は一箇所で完結しないことが多いです。たとえば新しい「Projects」機能なら、Contracts に DTO と route、Backend に VSA operation、DbContext に DbSet、UI に Refit interface と page、MenuService に menu、PermissionCatalog に permission を追加します。
 
-一方で、何でも共有化すればよいわけではありません。Contracts は「Backend と UI の境界で共有するもの」に限定します。Backend の business logic や EF entity を Contracts に置くと、UI が知るべきではない実装詳細が漏れます。
+一方で、何でも共有化すればよいわけではありません。Contracts は「Backend と UI の境界で共有するもの」に限定します。Backend の business logic や EF entity を Contracts に置くと、UI が知るべきではない実装詳細が漏れます。たとえば EF の Entity クラスを Contracts に置くと、データベーススキーマの変更が即座に UI の型エラーとして現れます。Contracts という中間層を置くことで、Backend の実装詳細を UI から隠せる設計になっています。
 
 Migrator は通常の API とは別プロセスです。AppHost が PostgreSQL を起動し、Migrator が migration を適用し、それから API/UI を起動します。ローカル開発ではこの順序を意識すると、起動時のエラーを切り分けやすくなります。
 

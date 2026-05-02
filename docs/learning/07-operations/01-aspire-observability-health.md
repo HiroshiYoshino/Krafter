@@ -42,6 +42,31 @@ AppHost は「全部を起動する main method」です。Docker Compose のよ
 
 `AddServiceDefaults()` は OpenTelemetry、health checks、service discovery、HttpClient resilience をまとめて登録します。`MapDefaultEndpoints()` は development environment で `/health` と `/alive` を map します。
 
+## AppHost リソース宣言のコード例
+
+次は実際の Krafter Split Host AppHost を簡略化した例です。`WithReference` で依存を伝え、`WaitForCompletion` で起動順序を定義します。
+
+```csharp
+var postgres = builder.AddPostgres("postgres")
+    .WithDataVolume();
+
+var migrator = builder.AddProject<Projects.Migrator>("app-migrator")
+    .WithReference(postgres)
+    .WaitFor(postgres);
+
+var api = builder.AddProject<Projects.Backend>("api")
+    .WithReference(postgres)
+    .WaitForCompletion(migrator)  // migrator 完了待ちに backend が起動
+    .WithExternalHttpEndpoints();
+
+var web = builder.AddProject<Projects.Web>("web")
+    .WithReference(api)
+    .WaitFor(api)
+    .WithExternalHttpEndpoints();
+```
+
+`WithReference` で辺れられた connection 情報は环境変数として consumer に渡り、service discovery で URL が解決されます。
+
 ## ServiceDefaults のコード例
 
 ```csharp
@@ -65,6 +90,8 @@ Aspire AppHost は production orchestrator そのものではなく、アプリ�
 Observability は logs、traces、metrics の 3 本柱です。Krafter の ServiceDefaults は OpenTelemetry instrumentation を登録し、Aspire dashboard で request、dependency、log を見やすくします。問題調査では、例外 message だけでなく、どの service からどの service に request が流れたかを確認します。
 
 Health check は readiness と liveness の区別が重要です。`/health` は traffic を受けてよいか、`/alive` は process が生きているかの判断に使われます。Krafter では development のみで default endpoints を公開する設定です。
+
+> **なぜ本番で公開しないのか**: `/health` レスポンスには依存サービスの接続状態、バージョン情報などアプリ構成情報が露出する可能性があります。本番で公開する場合は、認証やネットワーク制限を追加して内部ネットワークに限定する設計を模索します。
 
 ## 確認課題
 

@@ -83,11 +83,15 @@ dotnet run --project aspire/AditiKraft.Krafter.Aspire.AppHost/AditiKraft.Krafter
 
 また、SDK-style project は既定値が多い形式です。すべてのソースファイルを `csproj` に列挙しなくてもコンパイル対象になります。反対に、`PackageReference` や `ProjectReference` の追加は依存関係を変える操作なので、実装の影響範囲が広がります。
 
+Krafter には 3 つの solution ファイルがあります。`AditiKraft.Krafter.slnx` は Split Host テンプレートの出力として生成される solution です。`AditiKraft.Krafter.Single.slnx` は Single Host テンプレートの出力 solution です。`AditiKraft.Krafter.Dev.slnx` はテンプレートリポジトリ開発者向けの solution で、`src-single/` や `aspire-single/` を含む全プロジェクトが入っています。日常的に Krafter を開発・確認するときは `Dev.slnx` を使います。
+
+Aspire AppHost を起動すると、ブラウザで Aspire Dashboard が開きます（通常 `https://localhost:15888` 付近のポート）。Dashboard では各リソース（PostgreSQL、Migrator、Backend、UI）の Status が `Running` であれば起動成功です。ログやトレースもここから確認できます。
+
 ## 確認課題
 
 - `dotnet --info` を実行し、インストール済み SDK のバージョンを確認する。
-- `rg -n "TargetFramework|PackageReference|ProjectReference" -g "*.csproj"` を実行し、Krafter がどの package を使っているか見る。
-- `AditiKraft.Krafter.Dev.slnx` と `AditiKraft.Krafter.slnx` の違いを説明する。
+- VS Code で `*.csproj` ファイルを開き（またはターミナルで `grep -r "PackageReference\|ProjectReference" --include="*.csproj"` を実行し）、Krafter がどの package を使っているか見る。
+- `AditiKraft.Krafter.Dev.slnx` と `AditiKraft.Krafter.slnx` の違いを自分の言葉で説明する（ヒント: 上の「実務で必要な知識」を参照）。
 
 ## 出典リンク
 

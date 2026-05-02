@@ -13,6 +13,9 @@ ASP.NET Core アプリは、service registration と middleware pipeline の組�
 | Options pattern | 設定値を型として扱う仕組み | `JwtSettings` |
 | Middleware | HTTP request の通り道に入る処理 | exception、tenant、auth |
 | Pipeline | middleware が並ぶ順序 | `Use...` の順番が意味を持つ |
+| `Scoped` | HTTP リクエストごとに同じ instance | DbContext、UserService など |
+| `Singleton` | アプリ起動から終了まで 1 つ | 設定値やキャッシュなど |
+| `Transient` | 呼び出すたびに新規作成 | 軽量なユーティリティなど |
 
 ## 図で見る Backend pipeline
 
@@ -27,6 +30,19 @@ flowchart LR
 ```
 
 Middleware は順番が大事です。たとえば tenant が決まる前に DbContext query が動くと、tenant-aware な filter が正しく働きません。
+
+## 設定値の優先順位
+
+ASP.NET Core は複数の設定ソースを重ねて読み込みます。後から読んだ値が先の値を上書きします。
+
+| 優先順位（低→高） | 設定ソース | 用途 |
+|---|---|---|
+| 1 | `appsettings.json` | 全環境共通のデフォルト |
+| 2 | `appsettings.Development.json` | 開発環境用の上書き |
+| 3 | 環境変数 | CI/CD やコンテナへの注入 |
+| 4 | `dotnet user-secrets` | ローカル開発時のシークレット（Git に入らない） |
+
+DB 接続文字列や JWT 秘密鍵などは `appsettings.json` には書かず、`dotnet user-secrets set "SecuritySettings:JwtSettings:Secret" "..."` のように user-secrets に保存します。
 
 ## Krafterでの実装
 
@@ -52,7 +68,7 @@ builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 ```
 
-`AddScoped` は request ごとに service instance を作る lifetime です。DbContext や user/role service のように request の文脈を持つ処理は scoped が自然です。`ValidateOnStart` は設定値の不足を起動時に見つけるための保険です。
+`AddScoped` は request ごとに service instance を作る lifetime です。DbContext や user/role service のように request の文脈を持つ処理は scoped が自然です。DbContext を `AddSingleton` にすると、並列リクエストが同じ context を共有してしまい、スレッドセーフでない操作が起きます。`ValidateOnStart` は設定値の不足を起動時に見つけるための保険です。
 
 ## 実務で必要な知識
 

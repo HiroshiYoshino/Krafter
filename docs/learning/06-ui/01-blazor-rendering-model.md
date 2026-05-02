@@ -13,6 +13,7 @@ Krafter の UI は Blazor Web App と Blazor WebAssembly client を組み合わ�
 | Prerender | 最初に server で HTML を生成すること | 初期表示を速くできます |
 | WebAssembly | browser 内で .NET code を実行する仕組み | `UI.Web.Client` |
 | Code-behind | markup と C# logic を分ける書き方 | `.razor` + `.razor.cs` |
+| IFormFactor | server と WASM で異なる実装を差し替える DI interface | server/WASM で別実装を提供 |
 
 ## 図で見る Blazor の構成
 
@@ -25,6 +26,16 @@ flowchart TD
 ```
 
 Krafter の UI は「server だけ」でも「standalone WebAssembly だけ」でもありません。server host と WebAssembly client の役割を分けて読むのがコツです。
+
+## 表示フロー： prerender → WebAssembly interactive
+
+WebAssembly の interactive が始まるまでの流れは次のとおりです。
+
+1. **Prerender** — ブラウザがページを要求すると、server が静的 HTML を生成して返します。ユーザーは即座に画面を見れます。
+2. **WASM ダウンロード** — ブラウザがバックグラウンドで .NET runtime と WASM bundle を取得します。
+3. **Interactive** — WASM の読み込みが完了すると、component が interactive になり click/input を処理できます。
+
+Next.js などの SSR と同様、prerender による「初表示は速い、その後 interactive」な二段階構成です。WebAssembly を使うことで server 負荷を持たずブラウザ内でロジックを実行できますが、WASM bundle のダウンロード時間分だけ interactive になるまで時間がかかるというトレードオフがあります。
 
 ## Krafterでの実装
 

@@ -4,6 +4,8 @@
 
 Krafter の永続化は Entity Framework Core と PostgreSQL が中心です。EF Core は C# の entity と `DbContext` を通じて database を扱う ORM です。PostgreSQL への接続には Npgsql provider を使います。
 
+EF Core は Python の SQLAlchemy や Node.js の Prisma に近い役割で、SQL を直接書かずに C# の LINQ（クエリ構文）で操作できます。`db.Users.Where(...).Select(...)` のような記述が SQL `SELECT ... WHERE ...` に変換されます。
+
 ## キーワード
 
 | キーワード | 意味 | Krafter での見え方 |
@@ -40,12 +42,16 @@ EF Core は SQL を完全に隠す魔法ではありません。C# の LINQ が 
 
 ## DbContext 登録のコード例
 
+次のコードは PostgreSQL provider（Npgsql）を DbContext に接続する最小設定です。接続文字列だけ渡せばよく、SQL ドライバの細かい設定は provider が吸収します。
+
 ```csharp
 services.AddDbContext<ApplicationDbContext>(opts =>
 {
     opts.UseNpgsql(connectionString);
 });
 ```
+
+次の LINQ の例は「C# コードが SQL に変換される」流れを見るためのものです。`.Where(...)` で絞り込み、`.Select(...)` で必要なプロパティだけ DTO に射影（projection）し、`.ToListAsync(...)` でその時点で SQL が実行されます。Krafter では `!user.IsDeleted` のような条件を毎回書かなくても global query filter が自動で付けてくれます。
 
 ```csharp
 List<UserDto> items = await db.Users

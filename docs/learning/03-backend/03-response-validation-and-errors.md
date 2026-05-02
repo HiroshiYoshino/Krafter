@@ -65,9 +65,9 @@ Response は API と UI の会話の形をそろえます。Validator は reques
 
 ## 実務で必要な知識
 
-API の response shape が揃っていると、UI 側の error handling が単純になります。Krafter の UI では `ApiCallService` が `Response` を受け、成功 message や error notification を扱います。新しい endpoint でも同じ response wrapper を使うことで、UI の共通処理に乗せられます。
+API の response shape が揃っていると、UI 側の error handling が単純になります。Krafter の UI では `ApiCallService` が `Response` を受け、成功 message や error notification を扱います（`ApiCallService` の詳細は第 16 回で学びます。ここでは「Backend が統一した Response 形式を返すことで、UI 側が一箇所で成功/失敗を処理できる」という設計意図だけ掴んでください）。新しい endpoint でも同じ response wrapper を使うことで、UI の共通処理に乗せられます。
 
-Validation は request DTO と同じ Contracts 側に置く方針です。Backend と UI の両方が同じ入力制約を理解できるため、重複やずれを減らせます。ただし、DB 状態に依存する検証や権限判定など、server でしか判断できない処理は handler 側で行います。
+Validation は request DTO と同じ Contracts 側に置く方針です。Backend と UI の両方が同じ入力制約を理解できるため、重複やずれを減らせます。ただし、DB 状態に依存する検証や権限判定など、server でしか判断できない処理は handler 側で行います。Contracts が FluentValidation への依存を持つのは、Backend と UI が同じルールを共有するための意図的なトレードオフです。
 
 Exception middleware は想定外エラーをまとめて扱います。ただし、通常の business error は例外ではなく `Response.BadRequest`、`Response.NotFound`、`Response.Conflict` などで返すほうが、handler の意図が読みやすくなります。
 

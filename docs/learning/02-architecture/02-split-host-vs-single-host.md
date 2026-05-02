@@ -11,7 +11,7 @@ Krafter には 2 つの hosting model があります。Split Host は Backend A
 | Host | ASP.NET Core app の実行単位 | Split は API と UI が別 host |
 | Process | OS 上で動く実行単位 | Single は API+UI が 1 process |
 | CORS | 別 origin から API を呼ぶための制御 | Split では重要、Single では単純 |
-| BFF | browser と backend の間で token/cookie を管理する層 | UI.Web がその役目を持ちます |
+| BFF | browser と backend の間で token/cookie を管理する層 | UI.Web がその役目を持ちます。Browser は cookie 経由で UI.Web と通信し、UI.Web が Backend API への JWT を管理します。JavaScript から JWT が見えなくなるため、XSS によるトークン盗難を防ぎます |
 | Overlay | template 生成時に差分 file を重ねる方式 | Single Host の起動 file を差し替えます |
 
 ## 図で見る違い
@@ -53,6 +53,7 @@ IResourceBuilder<ProjectResource> backend = builder.AddProject<Projects.AditiKra
     .WaitForCompletion(migrator);
 
 builder.AddProject<Projects.AditiKraft_Krafter_UI_Web>("web")
+    .WithExternalHttpEndpoints()
     .WithReference(backend)
     .WithReference(database);
 ```
@@ -60,6 +61,7 @@ builder.AddProject<Projects.AditiKraft_Krafter_UI_Web>("web")
 ```csharp
 // Single Host: UI.Web が Backend services も同じ process に持つ
 IResourceBuilder<ProjectResource> app = builder.AddProject<Projects.AditiKraft_Krafter_UI_Web>("krafter-app")
+    .WithExternalHttpEndpoints()
     .WithReference(database)
     .WaitForCompletion(migrator);
 

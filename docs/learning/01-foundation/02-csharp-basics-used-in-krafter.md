@@ -14,9 +14,11 @@ Krafter のコードを読むには、C# の文法を広く全部覚えるより
 | Primary constructor | class 宣言の横で constructor parameter を受け取る形式 | DI service を短く受け取れます |
 | `async` / `await` | 待ち時間のある処理を非同期に書く仕組み | DB、HTTP、SignalR で頻出します |
 | CancellationToken | 処理中断の合図を渡す型 | API request の終了や timeout に対応します |
+| `sealed` | 継承を禁止する修飾子 | Krafter の Handler や Route は外部から拡張させない意図で使います |
+| `internal` | 同じ project 内からしか見えないアクセス修飾子 | Handler は外部から直接呼び出させない設計です |
 
 ## コードで見る頻出パターン
-
+> **注意**: 以下のコードには Krafter 固有の型（`IScopedHandler`、`Response<T>`、`PaginationResponse<T>` など）が登場します。型の詳細は第 7−9 回で説明します。ここでは **C# の文法パターン**（primary constructor、async/await、LINQ）だけ追ってください。
 ```csharp
 namespace AditiKraft.Krafter.Backend.Features.Users;
 
@@ -77,8 +79,8 @@ primary constructor は `class Users(DialogService dialogService, ApiCallService
 ## 確認課題
 
 - `src/AditiKraft.Krafter.Contracts/Contracts/Users/CreateUserRequest.cs` を開き、`string?` と `default!` の使い分けを確認する。
-- `Users.razor.cs` の primary constructor に渡されている service がどこで登録されているか探す。
-- `GetUsers.cs` の `ToListAsync` と `CountAsync` がなぜ `await` されているか説明する。
+- `Users.razor.cs` の primary constructor の引数をすべて書き出してみる（観察のみ。DI 登録場所の確認は第 8 回の後で試してください）。
+- `GetUsers.cs` の `ToListAsync` がなぜ `await` されているか、`await` しなかった場合に何が起きるか考える。
 
 ## 出典リンク
 

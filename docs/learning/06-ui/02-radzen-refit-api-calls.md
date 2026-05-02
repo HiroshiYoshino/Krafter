@@ -45,6 +45,24 @@ Refit interface は「HTTP request の型付き説明書」です。実際の UR
 
 `RefitServiceExtensions` は `IUsersApi`、`IRolesApi`、`ITenantsApi` などを登録し、`RefitTenantHandler` と `RefitAuthHandler` を message handler として差し込みます。
 
+## ApiCallService の使い方
+
+Refit interface を **直接呼ぶ**と、HTTP エラーや `Response<T>` の失敗判定を毎回自前で書く必要があります。`ApiCallService` を使うと成功/失敗の通知処理が一元化されます。
+
+```csharp
+// Refit を直接呼ぶ（非推奨）
+var result = await _usersApi.GetUsersAsync(input);
+if (!result.IsSuccessful)
+    // エラーを自分で通知 ...
+
+// ApiCallService を通す（Krafter 推奨）
+await _apiCall.CallAsync(
+    () => _usersApi.GetUsersAsync(input),
+    onSuccess: response => _users = response.Items);
+```
+
+`ApiCallService` は成功時に `onSuccess` callback を実行し、失敗時はアプリ全体の通知サービスへ自動でエラーを伝達します。ページ側は成功時の処理だけ書けばよいので、コードが簡潔になります。
+
 ## Refit interface のコード例
 
 ```csharp

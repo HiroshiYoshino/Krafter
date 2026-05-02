@@ -2,7 +2,9 @@
 
 ## 何を学ぶか
 
-Krafter の UI は認証状態、token storage、server-side cookie/cache、SignalR real-time connection を扱います。Blazor では `AuthenticationStateProvider` が UI に sign-in 状態を伝え、SignalR は通知などのリアルタイム機能に使われます。
+Krafter の UI は認証状態、token storage、server-side cookie/cache、SignalR real-time connection を扱います。Blazor では `AuthenticationStateProvider` が UI に sign-in 状態を伝え、SignalR はバックグラウンドジョブの完了通知などのリアルタイム機能に使われます。
+
+SignalR を使う理由は、サーバーからクライアントへリアルタイムでメッセージを push するためです。HTTP のポーリング（頂きで確認）はム驄な request が増えるため、Krafter は WebSocket ベースの SignalR 接続を持ったままサーバーから即座にイベントを届けます。
 
 ## キーワード
 
@@ -28,6 +30,21 @@ flowchart TD
 ```
 
 UI の表示制御、API 呼び出し、SignalR 接続は、どれも token や authentication state に依存します。1 つだけ直しても、他が古い token を見ていると不具合になります。
+
+## Token の保存パス
+
+Login のレスポンスが届いてから UI が token を使えるまでの流れです。
+
+```
+Login response
+    ↓
+ AuthCookieMiddleware （server host で intercept）
+    ├→ HttpOnly Cookie —— サーバーサイド prerender 時に使用
+    ├→ Server cache ——— server 内部の高速アクセス用
+    └→ WASM local storage — WebAssembly 側が API/SignalR 認証に使用
+```
+
+HttpOnly Cookie は JavaScript から読めないため XSS に強く、prerender 時の authentication state の初期化に使われます。WASM 側は Cookie にアクセスできないため、local storage を別途に持ちます。
 
 ## Krafterでの実装
 

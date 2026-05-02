@@ -4,6 +4,8 @@
 
 EF Core migrations は、C# の model 変更を database schema の変更履歴として管理する仕組みです。Krafter では migrations を手動で database に適用するのではなく、Aspire AppHost が short-lived migrator process を起動し、main app の前に migration を適用します。
 
+> **なぜ別 process にするのか**: API 起動時に自動 migration を当てる設計もありますが、複数インスタンスが同時起動したときの二重適用リスクや、migration 失敗時に API 起動を場内で止める安全弁として、Krafter は専用の Migrator process を分離しています。AppHost が Migrator の完了を待ってから Backend を起動する際序が、起動失敗の切り分けをしやすくします。
+
 ## キーワード
 
 | キーワード | 意味 | Krafter での見え方 |

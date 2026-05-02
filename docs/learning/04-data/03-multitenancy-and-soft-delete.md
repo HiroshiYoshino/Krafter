@@ -4,6 +4,8 @@
 
 Krafter は tenant-aware な SaaS アプリを作るための構造を持っています。tenant は request から識別され、DbContext の global query filter によって tenant ごとの data に絞り込まれます。また、削除は物理削除ではなく soft delete として扱われます。
 
+Krafter の tenant は 2 種類あります。**root tenant** は SaaS 全体の管理者組織で、全 tenant の設定や追加ができます。**sub tenant** は個々の顧客組織で、自テナントの data のみ操作できます。`PermissionCatalog.Root` に定義された機能は root tenant 専用で、一般組織のユーザーに開放しはいけません。
+
 ## キーワード
 
 | キーワード | 意味 | Krafter での見え方 |

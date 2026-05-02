@@ -4,6 +4,8 @@
 
 Krafter は role 名だけで endpoint を守るのではなく、permission 名を policy として扱います。`PermissionCatalog` が permission の一覧を定義し、Backend endpoint は `.MustHavePermission(action, resource)` で必要 permission を宣言します。
 
+role-based authorization（例: `[Authorize(Roles = "Admin")]`）は粒度が荒く、「admin は何でもできる」のような設計になりがちです。permission-based では `View Users`、`Create Users`、`Delete Users` のように操作単位で権限を定義するため、「一覧は見られるが作成はできない」といった細かい権限設計が可能です。role は permission の集合として管理するため、role を変えれば付与する permission を柔軟に調整できます。
+
 ## キーワード
 
 | キーワード | 意味 | Krafter での見え方 |
